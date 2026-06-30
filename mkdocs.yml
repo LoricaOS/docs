@@ -1,0 +1,60 @@
+site_name: LoricaOS Docs
+site_description: Documentation for LoricaOS — a from-scratch, capability-secure, no-root operating system built on the Aegis kernel.
+site_url: https://docs.loricaos.org/
+repo_url: https://github.com/LoricaOS/LoricaOS
+repo_name: LoricaOS/LoricaOS
+copyright: Created by Dylan Hart · built with Claude Code
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.png
+  palette:
+    scheme: slate
+    primary: black
+    accent: blue
+  font:
+    text: Inter
+    code: JetBrains Mono
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+extra_css:
+  - assets/extra.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - footnotes
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - The Security Model: security-model.md
+  - Architecture: architecture.md
+  - The Desktop: desktop.md
+  - Packages (herald): packages.md
+  - Building from Source: building.md
+  - The Aegis Kernel: kernel.md
+  - Reference: reference.md
