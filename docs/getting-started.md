@@ -139,14 +139,29 @@ password**, and creates **that** user at **uid 0**.
 - No separate `root` account is created.
 - No `1000+` "regular user" convention — your account is the first user, and the
   first user is uid 0.
-- The password you choose **also becomes your admin-elevation credential**. When
-  something needs elevated authority later (the sudo-style flow), you re-enter
-  this same password.
+- **Admin password, your choice of mode.** Both installers then ask for an
+  admin password — the credential that authorizes elevated actions later (the
+  sudo-style flow). Leave it **blank** and your account password doubles as
+  the admin credential; type one and your system has a **separate** admin
+  password from day one.
 
 The text installer states this plainly while collecting your account:
 
 > This user is uid 0 — the first user. LoricaOS has no separate root;
-> you elevate to admin actions by re-entering this same password.
+> admin actions are authorized by the admin password (sudo-style).
+
+### Changing the admin password later
+
+On any installed (or live) system, rotate the admin credential with:
+
+```bash
+adminpw
+```
+
+It asks for the **current** admin password (verified by the same trusted
+authenticator that performs elevation), then for the new one twice. Your
+account/login password is unaffected — `adminpw` changes only the elevation
+credential.
 
 ### Pick a disk and confirm
 

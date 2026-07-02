@@ -33,7 +33,9 @@ compositor as you. On a text-console boot it is never started at all.
     - **Password:** `live`
 
     Privileged actions (the installer, Settings' admin panes) prompt for the
-    live system's **admin password**: `administrator`.
+    live system's **admin password**: `administrator`. (On an installed system
+    this is the admin password you chose at install time — change it any time
+    with `adminpw`.)
 
     The live session also auto-starts the graphical installer's dock icon, so you
     can install to disk from inside the desktop.
