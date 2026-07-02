@@ -88,6 +88,13 @@ The live ISO comes with one preconfigured account:
 | --- | --- | --- |
 | `live` | `live` | **0** |
 
+The live system's **admin password** — the credential that unlocks capability
+elevation (the installer, Settings' privileged panes, `aegisctl`) — is:
+
+```
+administrator
+```
+
 There is no `root` login to fall back to — **the `live` user *is* uid 0**. That
 is not a shortcut for the live image; it is how LoricaOS works. Authority comes
 from capabilities, not from a magic account name.
@@ -122,7 +129,7 @@ password up front** — this is the admin credential of the *live system* you're
 installing from. Without it, disk enumeration comes back empty and nothing is
 written.
 
-On the live ISO, that's the `live` account's password (`live`).
+On the live ISO, the admin password is `administrator`.
 
 ### One user, created at uid 0
 
