@@ -32,7 +32,14 @@ What that means in practice:
   herald `.hpkg` packages by their own repos. `fetch-components.sh` downloads
   each one listed in `tools/components.list`, unpacks the payloads into a single
   overlay tree, and emits the herald package database the desktop image
-  pre-seeds.
+  pre-seeds. Each component's own version also moves independently of the OS
+  release — lumen bumping its own version to fix an internal bug doesn't imply
+  a new LoricaOS release. The OS's own version is the single line in the
+  top-level `VERSION` file, stamped at rootfs-build time into `/etc/motd` and
+  `/etc/lorica-version` (the latter is what a GUI app like Lumen's About window
+  should read at runtime for "what LoricaOS release is this" — not its own
+  compiled-in version, which several components got wrong until this was
+  caught and fixed).
 - **Coreutils and the bootloader are likewise fetched.** The unprivileged
   coreutils (`ls`, `cat`, `cp`, `grep`, `ps`, `find`, …) come from the
   `LoricaOS/coreutils` package; Limine's BIOS+UEFI binaries are fetched (and its
@@ -143,12 +150,20 @@ artifact:
 
 - **A GUI component** — each desktop app lives in its own `LoricaOS/lumen-*`
   repo (plus `bastion`, `citadel-dock`, and the Lumen compositor) and publishes a
-  `class=system` herald `.hpkg`. Build it there, then either bump its line in
-  `tools/components.list` to the new release version or drop the built `.hpkg`
-  into `vendor/components/` so the desktop assembly picks it up. To add a *new*
-  app to the default desktop image, add a `<herald-id> <version>` line to
-  `components.list`; apps not on that list remain installable on demand via
-  herald.
+  `class=system` herald `.hpkg`. Each line in `tools/components.list` is
+  `<herald-id> <version> <fingerprint>` — the third field is NOT a plain
+  `sha256sum` of the `.hpkg` archive, it's a content fingerprint of the
+  *extracted* payload (`compute_fingerprint()` in `fetch-components.sh`: hash
+  every unpacked file's content sorted by path, then hash that digest list —
+  ignores mtimes/tar ordering/the detached `.sig` so two builds of identical
+  source produce the same pin). Bumping a component's version means the
+  fingerprint changes too; **never hand-compute it** — build the new release,
+  place its `.hpkg` at `vendor/components/<id>-<version>.hpkg`, and run
+  `tools/relock-components.sh`, which recomputes every pin from what's actually
+  in `vendor/components/` and rewrites `components.list` for you. To add a
+  *new* app to the default desktop image, add a `<herald-id> <version>` line
+  (fingerprint filled in by the same relock step) — apps not on that list
+  remain installable on demand via herald.
 - **The kernel** — Aegis builds in the [`LoricaOS/Aegis`](https://github.com/LoricaOS/Aegis)
   repository and is released as `aegis.elf`. To build LoricaOS against a kernel
   you built yourself, place it at `vendor/aegis-<KERNEL_VERSION>.elf` (or bump

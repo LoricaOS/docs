@@ -76,7 +76,7 @@ Four fetch scripts do the work, each pinning a version and caching the artifact 
 | `tools/fetch-coreutils.sh` | `COREUTILS_VERSION` | `coreutils.hpkg` | `vendor/coreutils/bin/` |
 | `tools/fetch-glyph.sh` *(per component)* | each app's `GLYPH_VERSION` | the glyph toolkit tarball | the component's build tree |
 
-The pattern is uniform. `fetch-kernel.sh` resolves a local cache first, otherwise downloads `…/LoricaOS/Aegis/releases/download/v<version>/aegis.elf`, and records the version it landed. `fetch-components.sh` walks `components.list` (one `<herald-id> <version>` line per package), downloads each from `…/LoricaOS/<id>/releases/download/v<version>/<id>.hpkg`, and unpacks every payload into a single overlay tree plus a database the desktop image pre-seeds. `fetch-coreutils.sh` does the same for the base utilities. Note that glyph is fetched *one layer down* — not by the OS repo, but by each `lumen-*` component at its own build time, because the toolkit is a link-time dependency of the app, not a thing installed onto the image.
+The pattern is uniform. `fetch-kernel.sh` resolves a local cache first, otherwise downloads `…/LoricaOS/Aegis/releases/download/v<version>/aegis.elf`, and records the version it landed. `fetch-components.sh` walks `components.list` (one `<herald-id> <version> <fingerprint>` line per package — the fingerprint is a content hash of the extracted `.hpkg` payload, not a plain `sha256sum` of the archive; see `tools/relock-components.sh`, the only supported way to update it), downloads each from `…/LoricaOS/<id>/releases/download/v<version>/<id>.hpkg`, and unpacks every payload into a single overlay tree plus a database the desktop image pre-seeds. `fetch-coreutils.sh` does the same for the base utilities. Note that glyph is fetched *one layer down* — not by the OS repo, but by each `lumen-*` component at its own build time, because the toolkit is a link-time dependency of the app, not a thing installed onto the image.
 
 ```text
 LoricaOS/Aegis  ──(release: aegis.elf)──────────────┐
@@ -105,9 +105,21 @@ LoricaOS/lumen-* ─┘                              fetch + assemble
       independently, and the fetch scripts are the single points that couple
       them.
 
+    This independence has a naming trap worth knowing about: the Aegis kernel
+    repo, every component repo (lumen, bastion, …), and the LoricaOS repo
+    itself each define a build-time macro called `AEGIS_VERSION` — but it means
+    a *different* version in each one (the kernel's own version; that
+    component's own version; and, in the LoricaOS repo specifically, this
+    OS's own release, exported as `LORICA_VERSION` to avoid the collision).
+    A GUI app reading its own compiled-in `AEGIS_VERSION` to show "the OS
+    version" is reading the wrong thing — the actual OS release is exposed at
+    runtime via `/etc/lorica-version`, stamped from the top-level `VERSION`
+    file at rootfs-build time. This is exactly the bug that shipped in
+    Lumen's About window until it was caught.
+
 ### Adding an app to the default image
 
-Because the component set is just a list, the default desktop image is edited by editing data, not code. Add a `<herald-id> <version>` line to `tools/components.list` and the next build fetches and bakes it in. Apps *not* on the list are still installable on demand via herald once they are on Chancery — the mechanism for optional extras (games, niche tools) that should not bloat the base image.
+Because the component set is just a list, the default desktop image is edited by editing data, not code. Add a `<herald-id> <version>` line to `tools/components.list`, place the built `.hpkg` at `vendor/components/<id>-<version>.hpkg`, and run `tools/relock-components.sh` to fill in the fingerprint — then the next build fetches and bakes it in. Apps *not* on the list are still installable on demand via herald once they are on Chancery — the mechanism for optional extras (games, niche tools) that should not bloat the base image.
 
 ## The two profiles
 
