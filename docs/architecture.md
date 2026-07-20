@@ -12,7 +12,7 @@ From the metal up:
 
 | Layer | Component | Repo | Role |
 |-------|-----------|------|------|
-| Kernel | **Aegis** | `LoricaOS/Aegis` | The from-scratch x86-64 kernel: capability model, scheduler, memory (PMM/VMM), VFS, sockets, drivers. Ships as a standalone `aegis.elf` artifact. |
+| Kernel | **Aegis** | `LoricaOS/Aegis` | The from-scratch kernel (x86-64 and arm64): capability model, scheduler, memory (PMM/VMM), VFS, sockets, drivers. Ships as a standalone `aegis.elf` artifact. |
 | Base userland | **coreutils** | `LoricaOS/coreutils` | The unprivileged base utilities (`/bin`). Present in both profiles, graphical or not. |
 | Display server | **Lumen** | `LoricaOS/lumen` | The compositor / display server. Owns the framebuffer; every GUI app is one of its clients over the `/run/lumen.sock` window protocol. |
 | Toolkit | **glyph** | `LoricaOS/glyph` | The GUI toolkit components *link against* — software renderer, theme system, fonts, the Lumen client protocol, terminal core, auth helpers. A build-time dependency, not a runtime package. |
@@ -31,7 +31,7 @@ From the metal up:
 
 ### Aegis — the kernel
 
-Aegis is a standalone, clean-slate x86-64 kernel and nothing else. It **embeds no userland**: at boot it mounts the root filesystem the bootloader provides and execs `/bin/vigil` as init, panicking "no init found" if there is none — exactly like Linux. Its surface is a small, deliberate one: a capability-checked syscall boundary, an SMP scheduler, paging and a physical/virtual memory manager, a VFS (ext2, ramfs, procfs, memfd), an IP/TCP/UDP network stack with sockets, and drivers (NVMe, xHCI, PS/2, framebuffer, HDA). The capability subsystem is written in `no_std` Rust; the rest is C.
+Aegis is a standalone, clean-slate kernel and nothing else, targeting **x86-64 and arm64** — the arm64 port runs on QEMU virt and boots natively on the Raspberry Pi 5. It **embeds no userland**: at boot it mounts the root filesystem the bootloader provides and execs `/bin/vigil` as init, panicking "no init found" if there is none — exactly like Linux. Its surface is a small, deliberate one: a capability-checked syscall boundary, an SMP scheduler, paging and a physical/virtual memory manager, a VFS (ext2, ramfs, procfs, memfd), an IP/TCP/UDP network stack with sockets, and drivers (NVMe, xHCI, PS/2, framebuffer, HDA). It is written **entirely in C**.
 
 Crucially, Aegis is **independently adoptable**. It publishes a versioned `aegis.elf` that *an* OS consumes — LoricaOS is the reference OS, but it is not a privileged one. Another operating system could build its own userland on Aegis the same way LoricaOS does: fetch the artifact, provide a rootfs with an init at `/bin/vigil`, and boot. The kernel knows nothing about Lumen, herald, or the desktop.
 

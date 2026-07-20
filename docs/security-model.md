@@ -107,18 +107,21 @@ does not care what its uid is.
 
 The enforcement point is the syscall handler. Every privileged operation begins
 with a `cap_check` against the calling process's table. The check itself is tiny
-and total — written in `no_std` Rust:
+and total:
 
-```rust
-// kernel/cap/src/lib.rs — return 0 if a matching slot exists, else -ENOCAP
-pub extern "C" fn cap_check(table: *const CapSlot, n: u32, kind: u32, rights: u32) -> i32 {
-    // ... null/bounds guards ...
-    for slot in slots {
-        if slot.kind == kind && (slot.rights & rights) == rights {
+```c
+/* kernel/cap/cap.c — 0 if a matching slot exists, else -ENOCAP */
+int cap_check(const cap_slot_t *table, uint32_t n, uint32_t kind, uint32_t rights)
+{
+    if (table == 0 || n == 0)
+        return -ENOCAP;
+    if (n > CAP_TABLE_SIZE)
+        n = CAP_TABLE_SIZE;
+    for (uint32_t i = 0; i < n; i++) {
+        if (table[i].kind == kind && (table[i].rights & rights) == rights)
             return 0;
-        }
     }
-    -(ENOCAP as i32)
+    return -ENOCAP;
 }
 ```
 
@@ -388,9 +391,11 @@ explicit, individually-checked grants.
     by playing by its rules. When that happens, the capability table is just bytes
     an attacker can rewrite.
 
-    The capability subsystem itself is written in `no_std` Rust to shrink that
-    surface for the most security-critical code, but the kernel around it is C and
-    the attack surface is real.
+    The capability subsystem itself is kept deliberately tiny — a small,
+    auditable core (`kernel/cap/cap.c`) so the most security-critical path is
+    easy to review — but it is C like the rest of the kernel, so that attack
+    surface is real. (The core was originally `no_std` Rust; it was migrated to
+    C so the kernel builds with a C toolchain alone.)
 
     **Do not deploy LoricaOS where a breach would matter.** Do not expose it to
     untrusted networks, do not trust it with secrets, and do not run anything on it
