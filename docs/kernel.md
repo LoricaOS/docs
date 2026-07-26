@@ -94,6 +94,11 @@ make version    # print the version from VERSION
 make clean
 ```
 
+A bare `make` builds the full, everything-on kernel. To build a smaller one —
+down to a stripped, MCU-class image — select a tier first (`make tiny_defconfig`,
+`make workstation_defconfig`, `make full_defconfig`). See
+[Configuring & Minifying the Kernel](configuration.md).
+
 The arm64 build is a parallel Makefile: `make -f Makefile.arm64` produces the aarch64 `aegis.elf` and `make -f Makefile.arm64 test` runs the same capability/SMP smoke test under `qemu-system-aarch64`. A separate `Makefile.pi5native` builds the firmware-direct image for booting on a real Raspberry Pi 5.
 
 !!! info "`make test` is a smoke test, and the panic is the pass"

@@ -57,4 +57,5 @@ nav:
   - Packages (herald): packages.md
   - Building from Source: building.md
   - The Aegis Kernel: kernel.md
+  - Configuring & Minifying: configuration.md
   - Reference: reference.md
