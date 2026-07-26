@@ -96,17 +96,21 @@ loudly-flagged trade-off); you keep capability *authority*.
 
 ## What it buys you (measured)
 
-The first gated subsystem is the network stack (`CONFIG_NET`) — chosen as the
-proving ground precisely because it is the *most* coupled into the core. On
-x86-64, turning it off versus the full build:
+Gated so far — `CONFIG_NET`, `CONFIG_TRACE`, `CONFIG_HYPERV`,
+`CONFIG_AUDIO_HDA` — across the three tiers on x86-64:
 
-| | `full` | `tiny` (NET off) | Δ |
-|---|---|---|---|
-| `.text` (code) | 585,886 B | 498,382 B | **−87.5 KB (−15%)** |
-| `.bss` (static RAM) | 3,089,924 B | 2,873,732 B | **−216 KB** |
+| tier | `.text` (code) | `.bss` (static RAM) |
+|------|----------------|---------------------|
+| `full` | 585,886 B | 3,089,924 B |
+| `workstation` | 555,574 B (−30 KB) | 2,425,604 B (−664 KB) |
+| `tiny` | 472,190 B (**−19 %**) | 2,209,828 B (**−28 %**) |
 
-One subsystem. The larger wins — the debug trace buffer, the static `ramfs`
-arenas, the two dozen device drivers — follow the same mechanism.
+Every `tiny` build still boots to the no-init smoke panic with the capability
+core intact. `CONFIG_NET` was the proving ground — the *most* coupled subsystem;
+everything since (the 640 KB trace ring, the Hyper-V stack, the HDA driver)
+followed the same mechanism with far less friction. The next targets — the
+remaining driver families (virtio, xHCI, VMware) and the static `ramfs` arenas —
+are the same pattern again.
 
 ## For adopters: how a subsystem is severed
 
