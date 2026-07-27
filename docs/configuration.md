@@ -102,7 +102,11 @@ target: `tiny`'s `.bss` is **already 396 KB — under the RP2350's 520 KB SRAM**
 and it still carries x86-only per-CPU / GDT / TSS structures an armv8-M core
 wouldn't have, plus a PMM bitmap that sizes to actual RAM (a fraction on an MCU).
 Every knob a constrained target needs now exists; what's left is the arch port
-itself.
+itself. A staged **`pico2_defconfig`** already records the target's decisions —
+`MMU=n`, every x86/VM subsystem off, arenas sized for 520 KB, and the four
+PicoCalc drivers (GRAM char-cell LCD, I²C keyboard, SPI-SD + FAT, CYW43 Wi-Fi)
+on the bring-up list. It resolves cleanly through `kconf` today; it builds once
+`arch/armv8m` + the no-MMU backend land.
 
 ## What it buys you (measured)
 
