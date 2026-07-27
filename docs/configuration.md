@@ -98,11 +98,11 @@ On the RP2350's 520 KB SRAM the relevant budget is **`.bss` + `.data`, not
 `.text`** — the chip executes code from external QSPI flash via XIP, so code and
 rodata live in flash (up to 16 MB) and only static/heap/stack data occupy SRAM.
 That is exactly why the arena work matters more than code trimming for that
-target: `tiny`'s `.bss` is already under 1 MB, and the biggest remaining items
-are either further-tunable (the PTY pool, the kernel log, the PMM bitmap — which
-sizes to actual RAM) or x86-only (`NR_CPUS` per-CPU / GDT / TSS structures that
-simply don't exist on an armv8-M core). The knobs that get there already exist;
-what's left is the arch port itself.
+target: `tiny`'s `.bss` is **already 396 KB — under the RP2350's 520 KB SRAM** —
+and it still carries x86-only per-CPU / GDT / TSS structures an armv8-M core
+wouldn't have, plus a PMM bitmap that sizes to actual RAM (a fraction on an MCU).
+Every knob a constrained target needs now exists; what's left is the arch port
+itself.
 
 ## What it buys you (measured)
 
@@ -114,12 +114,22 @@ x86-64:
 |------|----------------|---------------------|
 | `full` | 585,886 B | 3,089,924 B |
 | `workstation` | 551,182 B | 2,403,396 B |
-| `tiny` | 454,134 B (**−22.5 %**) | 937,572 B (**−2.15 MB, −70 %**) |
+| `tiny` | 453,910 B (**−22.5 %**) | 396,516 B (**−2.69 MB, −87 %**) |
 
-The `.bss` collapse is mostly one lever: the tmpfs (`/tmp`, `/run`) arenas were
-~556 KB **each** (256 inodes × a 256-entry page-pointer array), and `tiny` sizes
-them to 32×32 — **13.8 KB each**. Those knobs (`CONFIG_RAMFS_MAX_INODES`,
-`…PAGES_PER_FILE`) are the first use of `kconf`'s numeric symbols.
+The `.bss` collapse comes from making the fixed static arenas numeric knobs
+(`kconf`'s `int` symbols). At the defaults they cost, per instance/table:
+
+| arena | knob | default | in `tiny` |
+|-------|------|---------|-----------|
+| tmpfs `/tmp` + `/run` | `RAMFS_MAX_INODES` × `…PAGES_PER_FILE` | ~556 KB each | 32×32 → 13.8 KB each |
+| per-CPU (TSS/GDT/areas) | `MAX_CPUS` | 1024 → ~250 KB | 8 → ~2 KB |
+| PTY pool | `PTY_MAX_PAIRS` | 16 → ~140 KB | 4 → 35 KB |
+| kernel log ring | `KLOG_SIZE_KB` | 64 KB | 8 KB |
+| ext2 block cache | `EXT2_CACHE_SLOTS` | 16 → 66 KB | 4 → 16 KB |
+| PMM boot bitmap | `PMM_BOOT_GB` | 4 → 128 KB | 2 → 64 KB |
+
+**`tiny`'s 396 KB `.bss` already fits under an RP2350's 520 KB SRAM** — and it
+still carries x86-only per-CPU/GDT/TSS structures an armv8-M port wouldn't have.
 
 Every `tiny` build still boots to the no-init smoke panic with the capability
 core intact. `CONFIG_NET` was the proving ground — the *most* coupled subsystem;
