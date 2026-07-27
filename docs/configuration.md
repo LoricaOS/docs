@@ -36,11 +36,12 @@ and values settle to a fixpoint.
 
 ## Tiers
 
-Three `defconfig`s ship in `configs/`, and you can write your own:
+Several `defconfig`s ship in `configs/`, and you can write your own:
 
 | Tier | For | Includes |
 |------|-----|----------|
-| **`tiny`** | The minification floor — boots to the smoke-test panic | Security core + boot + mm + sched + a console. Nothing optional. |
+| **`nano`** | The minification floor — leanest bootable kernel | Security core + boot + mm + sched + a **serial** console. No storage, USB, framebuffer, or anything else optional. |
+| **`tiny`** | Minimal but with the usual PC devices | The core plus block storage, USB, framebuffer — just no net/VM/audio/debug. |
 | **`workstation`** | A text-only, networked system with minimal bloat | The above **plus** the full network stack, persistent `ext2`, `procfs`, pipes — but no audio, no debug trace, only the drivers a headless text workstation needs. |
 | **`full`** | Everything on | Every subsystem and driver. **Identical to the historical bare-`make` build.** |
 
@@ -119,6 +120,12 @@ x86-64:
 | `full` | 585,886 B | 3,089,924 B |
 | `workstation` | 551,182 B | 2,403,396 B |
 | `tiny` | 453,910 B (**−22.5 %**) | 396,516 B (**−2.69 MB, −87 %**) |
+| `nano` | 338,982 B (**−42 %**) | 344,548 B (**−89 %**) |
+
+`nano` is the leanest bootable x86_64 build — serial console only, no block
+storage, no USB, no framebuffer (the 80 KB `fb.o` alone), no VirtIO/Hyper-V/
+audio/trace/self-tests. It still boots to the no-init panic (rendered by the
+serial-only stub `panic_halt`), stripped to a **347 KB** on-disk image.
 
 The `.bss` collapse comes from making the fixed static arenas numeric knobs
 (`kconf`'s `int` symbols). At the defaults they cost, per instance/table:
