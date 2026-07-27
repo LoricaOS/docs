@@ -96,21 +96,41 @@ loudly-flagged trade-off); you keep capability *authority*.
 
 ## What it buys you (measured)
 
-Gated so far — `CONFIG_NET`, `CONFIG_TRACE`, `CONFIG_HYPERV`,
-`CONFIG_AUDIO_HDA` — across the three tiers on x86-64:
+Gated so far — the network stack, the trace ring, the Hyper-V stack, the HDA
+driver, and the whole VirtIO family (per device) — across the three tiers on
+x86-64:
 
 | tier | `.text` (code) | `.bss` (static RAM) |
 |------|----------------|---------------------|
 | `full` | 585,886 B | 3,089,924 B |
-| `workstation` | 555,574 B (−30 KB) | 2,425,604 B (−664 KB) |
-| `tiny` | 472,190 B (**−19 %**) | 2,209,828 B (**−28 %**) |
+| `workstation` | 551,182 B | 2,403,396 B |
+| `tiny` | 454,118 B (**−22.5 %**) | 2,048,612 B (**−1.04 MB, −34 %**) |
 
 Every `tiny` build still boots to the no-init smoke panic with the capability
 core intact. `CONFIG_NET` was the proving ground — the *most* coupled subsystem;
-everything since (the 640 KB trace ring, the Hyper-V stack, the HDA driver)
-followed the same mechanism with far less friction. The next targets — the
-remaining driver families (virtio, xHCI, VMware) and the static `ramfs` arenas —
-are the same pattern again.
+everything since (the 640 KB trace ring, the Hyper-V stack, the HDA driver, the
+VirtIO devices) followed the same mechanism with far less friction. The next
+targets — xHCI/USB, VMware, and the static `ramfs` arenas — are the same again.
+
+## Not just tiers — deeply customizable
+
+The tiers are only `defconfig`s; each one just *sets* a collection of
+independent `CONFIG_*` symbols. Anything a tier cuts, you can cut or keep on its
+own. Families are gated at **per-device** granularity, Linux-style: a
+transport/core symbol plus one knob per member that `depends on` it. VirtIO is
+the worked example — `CONFIG_VIRTIO` is the transport, and `CONFIG_VIRTIO_BLK`,
+`CONFIG_VIRTIO_GPU`, `CONFIG_VIRTIO_NET`, … each stand alone:
+
+```sh
+make tiny_defconfig                    # everything off
+echo CONFIG_VIRTIO=y     >> .config    # add the transport back…
+echo CONFIG_VIRTIO_BLK=y >> .config    # …and *only* virtio-blk
+make oldconfig && make                 # compiles virtio_blk + virtio_pci + a
+                                       # no-op stub for the other 10 devices
+```
+
+So "tiny", "workstation", and "full" are starting points, not a cage — the real
+surface is the full `Kconfig` tree, drivable with `make menuconfig` or by hand.
 
 ## For adopters: how a subsystem is severed
 
