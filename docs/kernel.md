@@ -63,7 +63,7 @@ A short tour of `kernel/`:
 | `kernel/cap/` | The capability subsystem — the token kinds and the `cap_check` enforcement (`cap.c`, `cap_policy.c`). Plain C, migrated from an earlier `no_std` Rust core. |
 | `kernel/sched/` | Scheduler, run queues, wait queues, and process plumbing (fork/exec live here and in `kernel/proc/`). |
 | `kernel/proc/`, `kernel/signal/` | Process model + ELF loading (`elf.c`, the init spawn); POSIX signals. |
-| `kernel/fs/` | VFS, ext2 (with a block cache), ramfs, procfs, initrd, pipes, `memfd`, `eventfd`, GPT/block layer. |
+| `kernel/fs/` | VFS (pluggable disk backend: ext2 with a block cache, or read-write FAT32), ramfs, procfs, initrd, pipes, `memfd`, `eventfd`, GPT/block layer. |
 | `kernel/net/` | netdev, Ethernet, IP, UDP, TCP, BSD-style sockets, AF_UNIX, `epoll`. |
 | `kernel/drivers/` | Storage (**NVMe**, AHCI), USB (**xHCI** + HID), the **framebuffer** console, HDA audio, a full virtio family, several real NICs (e1000, rtl8139/8169, vmxnet3), and Hyper-V/VMBus paravirtual devices. |
 | `kernel/tty/` | TTY and PTY. |

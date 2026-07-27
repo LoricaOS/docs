@@ -109,6 +109,43 @@ PicoCalc drivers (GRAM char-cell LCD, I²C keyboard, SPI-SD + FAT, CYW43 Wi-Fi)
 on the bring-up list. It resolves cleanly through `kconf` today; it builds once
 `arch/armv8m` + the no-MMU backend land.
 
+## Pluggable disk filesystem — `ext2` is now optional
+
+The root/disk filesystem sits behind a small vtable (`fs_ops`, resolved through
+a single `g_rootfs` pointer), so the disk backend is a config choice and exactly
+one is linked:
+
+| `CONFIG_` | Backend | Notes |
+|-----------|---------|-------|
+| `FS_EXT2` (default) | **ext2** | The historical backend, full Unix ownership + permissions (DAC). ~34 KB. |
+| `FS_FAT` | **FAT32** | Read-write, ~⅓ of ext2's code. The format every SD card and PC speaks. |
+| *(neither)* | **nullfs** | No disk at all — the VFS serves only initrd (RO) + tmpfs; any disk path fails. For a diskless embedded build. |
+
+`FS_FAT` `depends on !FS_EXT2` — both provide the same root backend, so you pick
+one. The FAT driver is a **complete read-write filesystem**: create/read/write/
+unlink/truncate, `mkdir`/`rmdir`, rename/move, and **long filenames** (VFAT LFN,
+both reassembled on read and generated on create), with FAT date fields decoded
+into inode times. It is on-disk-compatible with standard tooling — a volume
+written by Aegis mounts and reads correctly under `mtools`/Linux/Windows, and
+vice-versa.
+
+FAT has **no** Unix ownership or permissions, so `chmod`/`chown` are accepted
+no-ops and the passwd/shadow anchors report absent. That is not a security
+downgrade: on Aegis, authority never came from file-mode bits — it comes from
+the **capability layer at the syscall boundary**, which is identical on either
+backend. FAT simply drops a DAC layer Aegis was already treating as advisory.
+
+This is the storage story for the PicoCalc spin: **FAT on the SD card, no ext2,
+no DAC overhead**, everything mountable on a host for flashing and recovery.
+
+```sh
+make nano_defconfig                 # ext2 off by default in nano → nullfs
+echo CONFIG_FS_FAT=y      >> .config
+echo CONFIG_VIRTIO=y      >> .config # (need a block transport to reach a disk)
+echo CONFIG_VIRTIO_BLK=y  >> .config
+make oldconfig && make              # links the FAT backend instead of nullfs
+```
+
 ## What it buys you (measured)
 
 Gated so far — the network stack, the trace ring, the Hyper-V stack, the HDA

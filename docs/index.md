@@ -14,7 +14,7 @@ The capability model carries all the way up the stack: a userland program touche
 
 ## What's here
 
-- **A from-scratch kernel — Aegis.** Clean-slate, for **x86-64 and arm64**: its own boot path, SMP, paging, scheduler, VFS (ext2, ramfs, procfs, memfd), networking (IP/TCP/UDP, sockets), and drivers (NVMe, xHCI, PS/2, framebuffer, HDA). Written **entirely in C**. On arm64 it runs on QEMU virt and boots **natively on the Raspberry Pi 5**. Aegis ships as a versioned `aegis.elf` artifact and keeps its own name and version.
+- **A from-scratch kernel — Aegis.** Clean-slate, for **x86-64 and arm64**: its own boot path, SMP, paging, scheduler, a pluggable VFS (ext2 or FAT32 on disk, ramfs, procfs, memfd), networking (IP/TCP/UDP, sockets), and drivers (NVMe, xHCI, PS/2, framebuffer, HDA). Written **entirely in C**. On arm64 it runs on QEMU virt and boots **natively on the Raspberry Pi 5**. Aegis ships as a versioned `aegis.elf` artifact and keeps its own name and version.
 - **A real desktop.** The Lumen compositor with the Glyph toolkit, the Citadel shell, and the Bastion display manager — plus apps, each living in its own repo and shipped as a signed package.
 - **A signed package manager — herald.** Components are distributed as `.hpkg` packages; the desktop image is assembled from them, and more are installable on demand.
 - **Two profiles, two architectures.** A graphical desktop ISO and a zero-graphical text-console server ISO, both live and bootable on x86-64 — and an arm64 build that runs on QEMU virt and boots natively on the Raspberry Pi 5.
