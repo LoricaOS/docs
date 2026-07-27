@@ -21,7 +21,7 @@ Aegis kept its own name through the LoricaOS rebrand on purpose. It is **just th
 
 ## The boot model
 
-On **x86-64**, Aegis boots via the **Limine boot protocol** (it also still supports **multiboot2**). The bootloader loads the kernel and hands it a boot-info structure; Aegis parses the memory map and command line from it and takes a 32-bpp framebuffer at the native resolution.
+On **x86-64**, Aegis boots three ways from one image: the **Limine boot protocol** (primary), **multiboot2** (GRUB / QEMU direct), and **PVH** - the bootloader-less path microVMs use. Under Limine/multiboot2 the bootloader loads the kernel and hands it a boot-info structure; Aegis parses the memory map and command line from it and takes a 32-bpp framebuffer at the native resolution. Under **PVH** (an ELF note + `hvm_start_info`), the VMM loads the raw ELF and jumps straight in with no bootloader - this is what lets Aegis launch directly in **Firecracker, cloud-hypervisor, and QEMU `microvm`** (see the [microVM tier](configuration.md#microvms-boot-in-firecracker)).
 
 On **arm64**, the same kernel boots two ways: via **Limine (UEFI)** on QEMU virt and Apple-silicon VMs, and via a **native, firmware-direct path** on the Raspberry Pi 5 — no bootloader, entered straight from the stock Pi firmware (TF-A at EL3), with the memory map, GIC bases, PCIe ECAM, and the initramfs all read from the **device tree** at runtime.
 
@@ -56,7 +56,7 @@ A short tour of `kernel/`:
 
 | Directory | What's there |
 |-----------|--------------|
-| `kernel/arch/x86_64/` | The x86-64 machine: Limine/multiboot2 boot + higher-half trampoline, GDT/IDT/TSS, ISRs, context switch, LAPIC/IOAPIC, SMP bring-up, paging, ACPI, the SYSCALL entry path. |
+| `kernel/arch/x86_64/` | The x86-64 machine: Limine/multiboot2/PVH boot + higher-half trampoline, GDT/IDT/TSS, ISRs, context switch, LAPIC/IOAPIC, SMP bring-up, paging, ACPI, the SYSCALL entry path. |
 | `kernel/arch/arm64/` | The arm64 machine: EL2→EL1 boot (Limine and the native Pi 5 firmware-direct path), exception vectors, context switch, GICv2/v3, the generic timer, page tables, PSCI SMP bring-up, a device-tree reader, and the Pi 5 drivers (RP1 southbridge, Broadcom PCIe, VideoCore mailbox). |
 | `kernel/syscall/` | **The trust boundary.** POSIX-ish syscall dispatch (`sys_*.c`) — process, memory, file, dir, socket, signal, time, identity, capability, and admin-config syscalls; `futex`. |
 | `kernel/mm/` | Physical (`pmm`) and virtual (`vmm`) memory, VMAs, and **uaccess**: `copy_to_user`/`copy_from_user` guarded by an **exception table** so a bad user pointer faults into a recovery path instead of taking down the kernel. |

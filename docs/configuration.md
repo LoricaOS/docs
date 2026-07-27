@@ -41,18 +41,21 @@ Several `defconfig`s ship in `configs/`, and you can write your own:
 | Tier | For | Includes |
 |------|-----|----------|
 | **`nano`** | The minification floor — leanest bootable kernel | Security core + boot + mm + sched + a **serial** console. No storage, USB, framebuffer, or anything else optional. |
+| **`microvm`** | A Firecracker / cloud-hypervisor / QEMU-microvm guest | PVH direct boot (no bootloader), **no PCI bus, no ACPI**, virtio-mmio transport, virtio-blk + virtio-net, ext2 root, networking, serial. The smallest *useful* Aegis — see [MicroVMs](#microvms-boot-in-firecracker) below. |
 | **`tiny`** | Minimal but with the usual PC devices | The core plus block storage, USB, framebuffer — just no net/VM/audio/debug. |
 | **`workstation`** | A text-only, networked system with minimal bloat | The above **plus** the full network stack, persistent `ext2`, `procfs`, pipes — but no audio, no debug trace, only the drivers a headless text workstation needs. |
 | **`full`** | Everything on | Every subsystem and driver. **Identical to the historical bare-`make` build.** |
 
 The `workstation` tier is the feature contract for an eventual **PicoCalc spin**
 (see below): everything you want in a pocket text terminal, and nothing you
-don't.
+don't. The `microvm` tier is the cloud counterpart — a kernel that boots
+straight into a microVM the way Firecracker expects.
 
 ## Using it
 
 ```sh
 make tiny_defconfig          # smallest bootable kernel
+make microvm_defconfig       # Firecracker/microvm guest (PVH, no PCI/ACPI, virtio-mmio)
 make workstation_defconfig   # text-only, networked
 make full_defconfig          # everything on (the default)
 make allnoconfig             # every optional prompt off
@@ -61,6 +64,9 @@ make oldconfig               # keep your .config, fill in new symbols
 make                         # builds the selected .config
                              # (a bare make with no .config seeds full_defconfig,
                              #  so the historical everything-on build is unchanged)
+
+make test-microvm            # build the microvm tier + a test rootfs and boot it
+                             # in QEMU -machine microvm to a ring-3 userspace all-pass
 ```
 
 ## The one thing you can never turn off
@@ -108,6 +114,66 @@ itself. A staged **`pico2_defconfig`** already records the target's decisions �
 PicoCalc drivers (GRAM char-cell LCD, I²C keyboard, SPI-SD + FAT, CYW43 Wi-Fi)
 on the bring-up list. It resolves cleanly through `kconf` today; it builds once
 `arch/armv8m` + the no-MMU backend land.
+
+## MicroVMs — boot in Firecracker {: #microvms-boot-in-firecracker }
+
+If the MMU axis reaches *down* to the MCU, the microVM axis reaches *up* to the
+cloud. A microVM (Firecracker, cloud-hypervisor, QEMU `-machine microvm`) is a
+deliberately stripped machine: **no bootloader, no BIOS, no PCI bus, no legacy
+devices, and — on Firecracker — no ACPI at all.** That is not a limitation to
+work around; it is *exactly* the minification frontier. Building for a microVM
+and deleting the biggest remaining platform chunks are the **same work**, so the
+`microvm` tier is both the leanest *useful* Aegis and a first-class deploy
+target. It boots to a full ring-3 userland — verified by `make test-microvm`,
+which runs the entire 22-test userspace suite (processes, fork/COW, signals,
+exec, mmap, `clock_nanosleep`, capability enforcement, filesystem) to an
+all-pass inside a bare microVM.
+
+Three config axes and a boot path make it work:
+
+**PVH direct boot.** MicroVMs run no bootloader — the VMM loads the kernel ELF
+and jumps to a 32-bit entry named by an ELF note, handing over an
+`hvm_start_info` (the Xen PVH boot ABI). Aegis emits that note and translates the
+struct into the same arch-neutral bootinfo the Limine path uses, so it launches
+directly in Firecracker and cloud-hypervisor. Limine and multiboot2 still work
+for bare-metal / QEMU-pc; PVH is simply a third entry, always present.
+
+**`CONFIG_VIRTIO_MMIO` — the transport.** MicroVMs expose virtio devices not on
+a PCI bus but as flat MMIO register blocks at fixed addresses (the base differs
+per VMM). The virtio stack is split into a transport-neutral core plus PCI and
+mmio back-ends, so every device driver — blk, net, rng, … — works over either
+transport unchanged. Devices are discovered from the Linux-standard
+`virtio_mmio.device=<size>@<base>:<irq>` kernel-cmdline entries (which Firecracker
+appends automatically), with a fixed-window scan of QEMU microvm's transport
+array as a fallback.
+
+**`CONFIG_PCI` — droppable now.** With virtio-mmio there is no PCI bus to
+enumerate, so `CONFIG_PCI=n` swaps the whole PCIe/ECAM path for a stub reporting
+an empty bus. Every PCI-only device (NVMe, AHCI, xHCI/USB, PVSCSI, HD-audio)
+`depends on PCI`, so they leave with it. This is minification the microVM *makes
+correct*: dead weight on a machine that has no PCI at all.
+
+**`CONFIG_ACPI` — droppable for Firecracker.** Firecracker ships no ACPI tables.
+`CONFIG_ACPI=n` swaps `acpi.c` for a stub that reports no MADT/MCFG; the kernel
+falls back to BSP-only SMP and drives its timekeeping tick from the **LAPIC
+timer** instead of the (absent) 8254 PIT IRQ — so `nanosleep` and every timeout
+still work with no I/O APIC. PCI `depends on ACPI` (x86 PCIe config space comes
+from the MCFG table), so this drops the bus too.
+
+The result is a ~233 KB-`.text` kernel that boots a real capability-secured
+userland the way Firecracker boots one — raw ELF in, virtio-mmio out, nothing
+legacy in between:
+
+```sh
+make microvm_defconfig && make
+qemu-system-x86_64 -machine microvm -global virtio-mmio.force-legacy=false \
+    -kernel build/aegis.elf -append "boot=text" \
+    -drive id=root,file=rootfs.img,format=raw,if=none \
+    -device virtio-blk-device,drive=root -nographic
+```
+
+cloud-hypervisor is covered by the same PVH boot with ACPI + PCI + virtio-pci
+left on (it uses a PCI bus), so a single tree serves the whole microVM matrix.
 
 ## Pluggable disk filesystem — `ext2` is now optional
 
@@ -159,10 +225,19 @@ x86-64:
 | `tiny` | 453,910 B (**−22.5 %**) | 396,516 B (**−2.69 MB, −87 %**) |
 | `nano` | 338,982 B (**−42 %**) | 344,548 B (**−89 %**) |
 
+These figures are the baseline that established the subsystem-gating mechanism.
+Two changes since compound *on top* of them: **`--gc-sections`** (dead-code
+elimination, always on — ~15 % off `full`'s `.text` alone) and a
+**`CONFIG_CC_OPTIMIZE_FOR_SIZE`** (`-Os`) knob, both on in the lean tiers. With
+those plus the microVM axis (no PCI, no ACPI), the **`microvm`** tier lands at
+**≈233 KB `.text` / ≈676 KB `.bss`** — a networked, ext2-rooted, *userspace-
+complete* kernel smaller than the old `nano` floor, and `nano` itself now builds
+to **≈164 KB `.text`**.
+
 `nano` is the leanest bootable x86_64 build — serial console only, no block
 storage, no USB, no framebuffer (the 80 KB `fb.o` alone), no VirtIO/Hyper-V/
 audio/trace/self-tests. It still boots to the no-init panic (rendered by the
-serial-only stub `panic_halt`), stripped to a **347 KB** on-disk image.
+serial-only stub `panic_halt`).
 
 The `.bss` collapse comes from making the fixed static arenas numeric knobs
 (`kconf`'s `int` symbols). At the defaults they cost, per instance/table:
