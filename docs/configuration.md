@@ -94,6 +94,16 @@ model is **software-enforced and MMU-independent**, so the thing that makes
 Aegis *Aegis* survives the port. You lose hardware memory *isolation* (a real,
 loudly-flagged trade-off); you keep capability *authority*.
 
+On the RP2350's 520 KB SRAM the relevant budget is **`.bss` + `.data`, not
+`.text`** — the chip executes code from external QSPI flash via XIP, so code and
+rodata live in flash (up to 16 MB) and only static/heap/stack data occupy SRAM.
+That is exactly why the arena work matters more than code trimming for that
+target: `tiny`'s `.bss` is already under 1 MB, and the biggest remaining items
+are either further-tunable (the PTY pool, the kernel log, the PMM bitmap — which
+sizes to actual RAM) or x86-only (`NR_CPUS` per-CPU / GDT / TSS structures that
+simply don't exist on an armv8-M core). The knobs that get there already exist;
+what's left is the arch port itself.
+
 ## What it buys you (measured)
 
 Gated so far — the network stack, the trace ring, the Hyper-V stack, the HDA
@@ -104,7 +114,12 @@ x86-64:
 |------|----------------|---------------------|
 | `full` | 585,886 B | 3,089,924 B |
 | `workstation` | 551,182 B | 2,403,396 B |
-| `tiny` | 454,118 B (**−22.5 %**) | 2,048,612 B (**−1.04 MB, −34 %**) |
+| `tiny` | 454,134 B (**−22.5 %**) | 937,572 B (**−2.15 MB, −70 %**) |
+
+The `.bss` collapse is mostly one lever: the tmpfs (`/tmp`, `/run`) arenas were
+~556 KB **each** (256 inodes × a 256-entry page-pointer array), and `tiny` sizes
+them to 32×32 — **13.8 KB each**. Those knobs (`CONFIG_RAMFS_MAX_INODES`,
+`…PAGES_PER_FILE`) are the first use of `kconf`'s numeric symbols.
 
 Every `tiny` build still boots to the no-init smoke panic with the capability
 core intact. `CONFIG_NET` was the proving ground — the *most* coupled subsystem;
